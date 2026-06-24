@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Show/Delete — VM Calc</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+  <header class="site-header">
+    <div class="logo"><div class="logo-icon">⚡</div>VM Calculator</div>
+    <nav class="main-nav">
+      <a href="index.html"      class="nav-link">Home</a>
+      <a href="servers.html"    class="nav-link">Servers</a>
+      <a href="users.html"      class="nav-link">Users</a>
+      <a href="machines.html"   class="nav-link">Machines</a>
+      <a href="calculator.html" class="nav-link nav-cta">Calculate</a>
+    </nav>
+  </header>
+
+  <div class="page-wrap">
+    <div class="page-header">
+      <h1 class="page-title">Show / <span class="accent">Delete</span> All Data</h1>
+      <p class="page-sub">View all stored data or wipe everything and start fresh.</p>
+    </div>
+
+    <div class="sub-menu">
+      <button class="btn btn-primary" id="showBtn">Show All Data</button>
+      <button class="btn btn-danger"  id="deleteBtn">Delete All Data</button>
+      <a href="index.html" class="btn btn-ghost">← Main Menu</a>
+    </div>
+
+    <div id="dataDisplay" style="display:none">
+      <div class="section-label">Physical Servers</div>
+      <div class="table-wrap" id="hostsWrap" style="margin-bottom:2rem">
+        <table><thead><tr><th>Type Name</th><th>CPU</th><th>Memory</th><th>Storage</th><th>Count</th></tr></thead>
+        <tbody id="hostsTbody"></tbody></table>
+      </div>
+      <div class="empty-state" id="hostsEmpty" style="display:none;margin-bottom:2rem"><span>🖥</span>No servers.</div>
+
+      <div class="section-label">User Populations</div>
+      <div class="table-wrap" id="usersWrap" style="margin-bottom:2rem">
+        <table><thead><tr><th>Population Name</th><th>User Count</th></tr></thead>
+        <tbody id="usersTbody"></tbody></table>
+      </div>
+      <div class="empty-state" id="usersEmpty" style="display:none;margin-bottom:2rem"><span>👥</span>No users.</div>
+
+      <div class="section-label">Virtual Machine Types</div>
+      <div class="table-wrap" id="machinesWrap">
+        <table><thead><tr><th>Type Name</th><th>CPU</th><th>Memory</th><th>Storage</th><th>Populations</th></tr></thead>
+        <tbody id="machinesTbody"></tbody></table>
+      </div>
+      <div class="empty-state" id="machinesEmpty" style="display:none"><span>⚙️</span>No machines.</div>
+    </div>
+
+    <div id="deletedMsg" style="display:none">
+      <div class="success-panel" style="border-color:rgba(248,113,113,0.3);color:var(--red-soft)">
+        ✓ All data has been cleared.
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    document.getElementById('showBtn').addEventListener('click',()=>{
+      const {hosts,users,machines}=getState();
+      document.getElementById('dataDisplay').style.display='block';
+      document.getElementById('deletedMsg').style.display='none';
+
+      const hT=document.getElementById('hostsTbody'),hE=document.getElementById('hostsEmpty'),hW=document.getElementById('hostsWrap');
+      if(!hosts.length){hT.innerHTML='';hE.style.display='block';hW.style.display='none';}
+      else{hE.style.display='none';hW.style.display='block';hT.innerHTML=hosts.map(h=>`<tr><td><strong>${h.Name}</strong></td><td>${h.CPU}</td><td>${h.Memory} GB</td><td>${h.Storage} GB</td><td><span class="pill pill-purple">${h.Count}</span></td></tr>`).join('');}
+
+      const uT=document.getElementById('usersTbody'),uE=document.getElementById('usersEmpty'),uW=document.getElementById('usersWrap');
+      if(!users.length){uT.innerHTML='';uE.style.display='block';uW.style.display='none';}
+      else{uE.style.display='none';uW.style.display='block';uT.innerHTML=users.map(u=>`<tr><td><strong>${u.Name}</strong></td><td><span class="pill pill-purple">${u.Count.toLocaleString()}</span></td></tr>`).join('');}
+
+      const mT=document.getElementById('machinesTbody'),mE=document.getElementById('machinesEmpty'),mW=document.getElementById('machinesWrap'),keys=Object.keys(machines);
+      if(!keys.length){mT.innerHTML='';mE.style.display='block';mW.style.display='none';}
+      else{mE.style.display='none';mW.style.display='block';mT.innerHTML=keys.map(k=>{const m=machines[k];const tags=(m.Users&&m.Users.length)?m.Users.map(u=>`<span class="tag">${u}</span>`).join(''):'<span style="color:var(--text-hint)">none</span>';return `<tr><td><strong>${k}</strong></td><td>${m.CPU}</td><td>${m.Memory} GB</td><td>${m.Storage} GB</td><td>${tags}</td></tr>`;}).join('');}
+    });
+
+    document.getElementById('deleteBtn').addEventListener('click',()=>{
+      if(!confirm('Delete ALL data? This cannot be undone.')) return;
+      clearAllData();
+      document.getElementById('dataDisplay').style.display='none';
+      document.getElementById('deletedMsg').style.display='block';
+      showToast('All data cleared.');
+    });
+  </script>
+</body>
+</html>

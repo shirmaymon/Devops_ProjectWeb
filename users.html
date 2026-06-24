@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Users — VM Calc</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+  <header class="site-header">
+    <div class="logo"><div class="logo-icon">⚡</div>VM Calculator</div>
+    <nav class="main-nav">
+      <a href="index.html"      class="nav-link">Home</a>
+      <a href="servers.html"    class="nav-link">Servers</a>
+      <a href="users.html"      class="nav-link active">Users</a>
+      <a href="machines.html"   class="nav-link">Machines</a>
+      <a href="calculator.html" class="nav-link nav-cta">Calculate</a>
+    </nav>
+  </header>
+
+  <div class="page-wrap">
+    <div class="page-header">
+      <div class="page-tag">Step 2 of 3</div>
+      <h1 class="page-title">User <span class="accent">Populations</span></h1>
+      <p class="page-sub">Define groups of users — each population will be assigned to one or more VM types.</p>
+      <div class="intro-box" style="margin-top:1rem">
+        Examples: Developers · Regular users · Managers · IT Staff<br/>
+        <strong>****** Please Notice! All info is kEy SeNsiTive! ******</strong>
+      </div>
+    </div>
+
+    <div class="sub-menu">
+      <button class="btn btn-primary" id="showAddBtn">+ Add Population</button>
+      <button class="btn btn-ghost"   id="showEditBtn">✎ Edit</button>
+      <button class="btn btn-danger"  id="showDeleteBtn">✕ Delete</button>
+      <a href="index.html" class="btn btn-ghost">← Main Menu</a>
+      <a href="machines.html" class="btn btn-primary" style="margin-left:auto">Next: Machines →</a>
+    </div>
+
+    <div class="form-panel" id="addForm" style="display:none">
+      <div class="form-panel-title">New User Population</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Population Name</label><input type="text" id="f_name" placeholder="e.g. Developers" autocomplete="off"/><span class="error-msg" id="err_name"></span></div>
+        <div class="form-group"><label>User Count</label><input type="number" id="f_count" placeholder="e.g. 100" min="1"/><span class="error-msg" id="err_count"></span></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-success" id="addBtn">Add Population</button>
+        <button class="btn btn-ghost"   id="addCancelBtn">Cancel</button>
+      </div>
+    </div>
+
+    <div class="form-panel" id="editInline" style="display:none">
+      <div class="form-panel-title">Edit Population</div>
+      <div class="form-group" style="max-width:280px;margin-bottom:1rem">
+        <label>Population name to edit (case sensitive)</label>
+        <input type="text" id="editTarget" placeholder="Type exact name" autocomplete="off"/>
+        <span class="error-msg" id="err_editTarget"></span>
+      </div>
+      <div class="form-actions" style="margin-bottom:1rem">
+        <button class="btn btn-primary" id="loadEditBtn">Load</button>
+        <button class="btn btn-ghost"   id="editInlineCancelBtn">Cancel</button>
+      </div>
+      <div id="editFields" style="display:none">
+        <div class="form-grid">
+          <div class="form-group"><label>Population Name</label><input type="text" id="e_name" autocomplete="off"/><span class="error-msg" id="eerr_name"></span></div>
+          <div class="form-group"><label>User Count</label><input type="number" id="e_count" min="1"/><span class="error-msg" id="eerr_count"></span></div>
+        </div>
+        <input type="hidden" id="e_orig"/>
+        <button class="btn btn-success" id="saveEditBtn">Save Changes</button>
+      </div>
+    </div>
+
+    <div class="form-panel" id="deleteForm" style="display:none">
+      <div class="form-panel-title">Delete Population</div>
+      <div class="warn-box">⚠ Deleting is not reversible</div>
+      <div class="form-group" style="max-width:280px;margin-bottom:1rem">
+        <label>Population name to delete</label>
+        <input type="text" id="deleteTarget" placeholder="Type exact name" autocomplete="off"/>
+        <span class="error-msg" id="err_deleteTarget"></span>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-danger" id="confirmDeleteBtn">Delete — This is not reversible!</button>
+        <button class="btn btn-ghost"  id="deleteCancelBtn">Cancel</button>
+      </div>
+    </div>
+
+    <div class="section-label">User Populations</div>
+    <div class="table-wrap" id="tableWrap">
+      <table>
+        <thead><tr><th>#</th><th>Population Name</th><th>User Count</th></tr></thead>
+        <tbody id="usersTbody"></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="emptyState" style="display:none"><span>👥</span>No user populations yet.</div>
+    <div id="totalBar" style="display:none;font-size:.8rem;color:var(--text-dim);margin-top:.75rem">
+      Total users: <strong id="totalCount" style="color:var(--purple-soft)"></strong>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    renderTable();
+    document.getElementById('showAddBtn').addEventListener('click',    ()=>showOnly('addForm'));
+    document.getElementById('showEditBtn').addEventListener('click',   ()=>showOnly('editInline'));
+    document.getElementById('showDeleteBtn').addEventListener('click', ()=>showOnly('deleteForm'));
+    document.getElementById('addCancelBtn').addEventListener('click',        ()=>hideAll());
+    document.getElementById('editInlineCancelBtn').addEventListener('click', ()=>hideAll());
+    document.getElementById('deleteCancelBtn').addEventListener('click',     ()=>hideAll());
+    function showOnly(id){['addForm','editInline','deleteForm'].forEach(i=>document.getElementById(i).style.display=i===id?'block':'none');}
+    function hideAll(){['addForm','editInline','deleteForm'].forEach(i=>document.getElementById(i).style.display='none');}
+
+    document.getElementById('addBtn').addEventListener('click',()=>{
+      const name=document.getElementById('f_name').value.trim(),count=document.getElementById('f_count').value;
+      let ok=true;
+      ok=setError(document.getElementById('f_name'), document.getElementById('err_name'), validateNonEmpty(name,'Name'))&&ok;
+      ok=setError(document.getElementById('f_count'),document.getElementById('err_count'),validatePositiveInt(count,'Count'))&&ok;
+      if(!ok) return;
+      const {users}=getState();
+      if(users.find(u=>u.Name===name)){setError(document.getElementById('f_name'),document.getElementById('err_name'),'Name Already Exists, please start over');return;}
+      users.push({Name:name,Count:+count}); saveUsers(users); document.getElementById('f_name').value=''; document.getElementById('f_count').value=''; hideAll(); renderTable(); showToast(`"${name}" added.`);
+    });
+
+    document.getElementById('loadEditBtn').addEventListener('click',()=>{
+      const target=document.getElementById('editTarget').value.trim(),{users}=getState(),found=users.find(u=>u.Name===target);
+      if(!found){setError(document.getElementById('editTarget'),document.getElementById('err_editTarget'),"Doesn't exist. Re-enter and try again");document.getElementById('editFields').style.display='none';return;}
+      setError(document.getElementById('editTarget'),document.getElementById('err_editTarget'),'');
+      document.getElementById('e_name').value=found.Name; document.getElementById('e_count').value=found.Count; document.getElementById('e_orig').value=found.Name;
+      document.getElementById('editFields').style.display='block';
+    });
+
+    document.getElementById('saveEditBtn').addEventListener('click',()=>{
+      const orig=document.getElementById('e_orig').value,name=document.getElementById('e_name').value.trim(),count=document.getElementById('e_count').value;
+      let ok=true;
+      ok=setError(document.getElementById('e_name'), document.getElementById('eerr_name'), validateNonEmpty(name,'Name'))&&ok;
+      ok=setError(document.getElementById('e_count'),document.getElementById('eerr_count'),validatePositiveInt(count,'Count'))&&ok;
+      if(!ok) return;
+      const {users}=getState(); const idx=users.findIndex(u=>u.Name===orig); users.splice(idx,1); users.push({Name:name,Count:+count}); saveUsers(users); hideAll(); document.getElementById('editFields').style.display='none'; document.getElementById('editTarget').value=''; renderTable(); showToast(`"${name}" updated.`);
+    });
+
+    document.getElementById('confirmDeleteBtn').addEventListener('click',()=>{
+      const target=document.getElementById('deleteTarget').value.trim(),{users}=getState(),idx=users.findIndex(u=>u.Name===target);
+      if(idx===-1){setError(document.getElementById('deleteTarget'),document.getElementById('err_deleteTarget'),'Name not found. Re-enter and try again');return;}
+      users.splice(idx,1); saveUsers(users); document.getElementById('deleteTarget').value=''; setError(document.getElementById('deleteTarget'),document.getElementById('err_deleteTarget'),''); hideAll(); renderTable(); showToast(`Removing ${target}...`);
+    });
+
+    function renderTable(){
+      const {users}=getState(),tbody=document.getElementById('usersTbody'),empty=document.getElementById('emptyState'),wrap=document.getElementById('tableWrap'),totalBar=document.getElementById('totalBar');
+      if(users.length===0){tbody.innerHTML='';empty.style.display='block';wrap.style.display='none';totalBar.style.display='none';return;}
+      empty.style.display='none'; wrap.style.display='block'; totalBar.style.display='block';
+      document.getElementById('totalCount').textContent=users.reduce((s,u)=>s+u.Count,0).toLocaleString();
+      tbody.innerHTML=users.map((u,i)=>`<tr><td style="color:var(--text-hint)">${i+1}</td><td><strong>${u.Name}</strong></td><td><span class="pill pill-purple">${u.Count.toLocaleString()}</span></td></tr>`).join('');
+    }
+  </script>
+</body>
+</html>

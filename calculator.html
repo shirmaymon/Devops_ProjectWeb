@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Calculate — VM Calc</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+  <header class="site-header">
+    <div class="logo"><div class="logo-icon">⚡</div>VM Calculator</div>
+    <nav class="main-nav">
+      <a href="index.html"      class="nav-link">Home</a>
+      <a href="servers.html"    class="nav-link">Servers</a>
+      <a href="users.html"      class="nav-link">Users</a>
+      <a href="machines.html"   class="nav-link">Machines</a>
+      <a href="calculator.html" class="nav-link active nav-cta">Calculate</a>
+    </nav>
+  </header>
+
+  <div class="page-wrap">
+    <div class="page-header">
+      <div class="page-tag">Results</div>
+      <h1 class="page-title">Allocation <span class="accent">Results</span></h1>
+      <div class="intro-box" style="margin-top:.75rem">
+        <strong>Resources available for VMs = 80% of each host's specs (rounded down)</strong>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-primary" id="calcBtn">▶ Run Calculation</button>
+        <a href="index.html" class="btn btn-ghost">← Main Menu</a>
+      </div>
+    </div>
+
+    <!-- Summary stats (shown after calc) -->
+    <div class="stat-grid" id="summaryStats" style="display:none">
+      <div class="stat-card">
+        <div class="stat-label"><span class="stat-dot" style="background:var(--purple-soft)"></span>Total VMs</div>
+        <div class="stat-value" id="s_total">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="stat-dot" style="background:var(--green-mid)"></span>Placed</div>
+        <div class="stat-value" style="color:var(--green-mid)" id="s_placed">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="stat-dot" style="background:var(--red-soft)"></span>Unplaced</div>
+        <div class="stat-value" style="color:var(--red-soft)" id="s_missing">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="stat-dot" style="background:var(--blue-soft)"></span>Hosts Used</div>
+        <div class="stat-value" id="s_hosts">—</div>
+        <div class="stat-note" id="s_hosts_note"></div>
+      </div>
+    </div>
+
+    <div id="resultsArea"></div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    document.getElementById('calcBtn').addEventListener('click', () => {
+      const {hosts,users,machines}=getState();
+      if(!hosts.length){showToast('No servers found. Please enter Servers first.');return;}
+      if(!users.length){showToast('No users found. Please enter Users first.');return;}
+      if(!Object.keys(machines).length){showToast('No machines found. Please enter Machines first.');return;}
+
+      const {Hosts_seperated,Host_Dict,Machines}=Menu_Option4(hosts,users,machines);
+      saveMachines(Machines);
+
+      // Summary numbers
+      let totalVms=0,placed=0,missingTotal=0;
+      for(const k in Machines){ totalVms+=Machines[k]['Count']||0; }
+
+      const missingMap={};
+      for(const mType in Machines){
+        const req=Machines[mType]['Count']||0;
+        let alloc=0;
+        for(const hn in Host_Dict){ if(mType in Host_Dict[hn]) alloc+=Host_Dict[hn][mType]; }
+        const miss=req-alloc;
+        if(miss>0) missingMap[mType]=miss;
+      }
+      missingTotal=Object.values(missingMap).reduce((a,b)=>a+b,0);
+      placed=totalVms-missingTotal;
+      const hostsUsed=Hosts_seperated.filter(h=>Object.keys(Host_Dict[h.Name]||{}).length>0).length;
+
+      // Show summary stats
+      document.getElementById('summaryStats').style.display='grid';
+      document.getElementById('s_total').textContent=totalVms.toLocaleString();
+      document.getElementById('s_placed').textContent=placed.toLocaleString();
+      document.getElementById('s_missing').textContent=missingTotal.toLocaleString();
+      document.getElementById('s_hosts').textContent=hostsUsed;
+      document.getElementById('s_hosts_note').textContent=`of ${Hosts_seperated.length} total`;
+
+      let html='<div class="results-grid">';
+
+      for(const Host of Hosts_seperated){
+        const Name=Host['Name'], alloc=Host_Dict[Name]||{};
+        let usedCPU=0,usedMem=0,usedStrg=0;
+        for(const [mType,cnt] of Object.entries(alloc)){
+          if(Machines[mType]){usedCPU+=Machines[mType]['CPU']*cnt;usedMem+=Machines[mType]['Memory']*cnt;usedStrg+=Machines[mType]['Storage']*cnt;}
+        }
+        const origCpu=Host['CPU']+usedCPU, origMem=Host['Memory']+usedMem, origStrg=Host['Storage']+usedStrg;
+        const cpuPct=origCpu>0?Math.round(usedCPU/origCpu*100):0;
+        const memPct=origMem>0?Math.round(usedMem/origMem*100):0;
+        const strgPct=origStrg>0?Math.round(usedStrg/origStrg*100):0;
+
+        const barColor=p=>p>90?'var(--red-soft)':p>70?'var(--amber-soft)':'var(--teal-soft)';
+        const hasVms=Object.keys(alloc).length>0;
+        const statusPill=hasVms?`<span class="pill pill-green">${Object.values(alloc).reduce((a,b)=>a+b,0)} VMs</span>`:`<span class="pill" style="background:var(--bg4);color:var(--text-hint)">idle</span>`;
+
+        const vmRows=hasVms
+          ?Object.entries(alloc).map(([t,c])=>`<div class="vm-row"><span class="vm-type">${t}</span><span class="vm-count">${c} VM${c!==1?'s':''}</span></div>`).join('')
+          :'<div style="font-size:.8rem;color:var(--text-hint)">No VMs allocated</div>';
+
+        html+=`
+          <div class="host-card">
+            <div class="host-card-header">
+              <span class="host-card-name">${Name}</span>
+              ${statusPill}
+            </div>
+            <div class="host-card-body">
+              <div class="resource-bar-row">
+                <div class="resource-bar-label"><span>CPU</span><span>${Host['CPU']} cores remaining</span></div>
+                <div class="resource-bar-track"><div class="resource-bar-fill" style="width:${cpuPct}%;background:${barColor(cpuPct)}"></div></div>
+              </div>
+              <div class="resource-bar-row">
+                <div class="resource-bar-label"><span>Memory</span><span>${Host['Memory']} GB remaining</span></div>
+                <div class="resource-bar-track"><div class="resource-bar-fill" style="width:${memPct}%;background:${barColor(memPct)}"></div></div>
+              </div>
+              <div class="resource-bar-row">
+                <div class="resource-bar-label"><span>Storage</span><span>${Host['Storage']} GB remaining</span></div>
+                <div class="resource-bar-track"><div class="resource-bar-fill" style="width:${strgPct}%;background:${barColor(strgPct)}"></div></div>
+              </div>
+              <div class="allocated-vms">
+                <div class="allocated-vms-label">Allocated Machines</div>
+                ${vmRows}
+              </div>
+            </div>
+          </div>`;
+      }
+      html+='</div>';
+
+      // Missing panel
+      if(Object.keys(missingMap).length>0){
+        let t_cpu=0,t_mem=0,t_strg=0;
+        const rows=Object.entries(missingMap).map(([k,c])=>{
+          t_cpu+=Machines[k]['CPU']*c; t_mem+=Machines[k]['Memory']*c; t_strg+=Machines[k]['Storage']*c;
+          return `<div class="status-row"><span class="status-key">⚠ ${c} × "${k}" could not be placed</span><span style="color:var(--red-soft)">✗</span></div>`;
+        }).join('');
+        html+=`<div class="missing-panel"><h3>Missing Resources</h3><div>${rows}</div><div style="margin-top:1rem;font-size:.82rem;color:var(--text-dim)">Additional capacity needed: CPU <span style="color:var(--red-soft)">${t_cpu}</span> · RAM <span style="color:var(--red-soft)">${t_mem} GB</span> · Storage <span style="color:var(--red-soft)">${t_strg} GB</span></div></div>`;
+      } else {
+        html+=`<div class="success-panel">✓ All machines allocated successfully — no missing resources.</div>`;
+      }
+
+      document.getElementById('resultsArea').innerHTML=html;
+      document.getElementById('calcBtn').textContent='↺ Recalculate';
+    });
+  </script>
+</body>
+</html>

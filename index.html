@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VM Calculator</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      VM Calculator
+    </div>
+    <nav class="main-nav">
+      <a href="index.html"      class="nav-link active">Home</a>
+      <a href="servers.html"    class="nav-link">Servers</a>
+      <a href="users.html"      class="nav-link">Users</a>
+      <a href="machines.html"   class="nav-link">Machines</a>
+      <a href="calculator.html" class="nav-link nav-cta">Calculate</a>
+    </nav>
+  </header>
+
+  <div class="hero-area">
+    <div class="hero-grid">
+      <div>
+        <div class="page-tag">Virtual Infrastructure Planner</div>
+        <h1 class="hero-title">Virtual<br/><span class="accent">Machines</span><br/>per Host</h1>
+        <p class="hero-sub">
+          Enter your physical server specs, user populations, and VM requirements —
+          get a complete allocation plan showing exactly how many VMs fit on each host.
+        </p>
+        <div class="intro-box">
+          This calculator purpose is to help you manage the number of virtual machines on every host you own or might consider owning.<br/>
+          Please follow the instructions to get the best results :)<br/><br/>
+          <strong>****** Please Notice! All info is kEy SeNsiTive! ******</strong>
+        </div>
+        <div class="hero-actions">
+          <a href="servers.html" class="btn btn-primary">Start Planning →</a>
+          <button class="btn btn-ghost" id="loadDummyBtn">Load Example Data</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="status-card">
+          <div class="status-card-header">
+            <span class="live-dot"></span>
+            Current Data Status
+          </div>
+          <div class="status-row"><span class="status-key">Hosts</span>     <span class="status-val" id="hostCount">0 types</span></div>
+          <div class="status-row"><span class="status-key">Users</span>     <span class="status-val" id="userCount">0 populations</span></div>
+          <div class="status-row"><span class="status-key">Machines</span>  <span class="status-val" id="machineCount">0 types</span></div>
+        </div>
+
+        <div class="menu-tile-grid">
+          <a href="servers.html"    class="menu-tile"><span class="tile-num">01</span><span class="tile-icon">🖥</span><span class="tile-label">Servers</span></a>
+          <a href="users.html"      class="menu-tile"><span class="tile-num">02</span><span class="tile-icon">👥</span><span class="tile-label">Users</span></a>
+          <a href="machines.html"   class="menu-tile"><span class="tile-num">03</span><span class="tile-icon">⚙️</span><span class="tile-label">Machines</span></a>
+          <a href="calculator.html" class="menu-tile tile-accent"><span class="tile-num">04</span><span class="tile-icon">📊</span><span class="tile-label">Calculate</span></a>
+          <button class="menu-tile" id="dummyTile"><span class="tile-num">05</span><span class="tile-icon">📂</span><span class="tile-label">Load Data</span></button>
+          <a href="showdelete.html" class="menu-tile"><span class="tile-num">06</span><span class="tile-icon">🗑</span><span class="tile-label">Show/Delete</span></a>
+        </div>
+      </div>
+    </div>
+    <div class="notice-bar">All data is stored in your browser session &nbsp;·&nbsp; kEy SeNsiTive input &nbsp;·&nbsp; Resources available = 80% of raw specs</div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    updateStatus();
+    function updateStatus() {
+      const s = getState();
+      document.getElementById('hostCount').textContent    = s.hosts.length + ' type' + (s.hosts.length !== 1 ? 's' : '');
+      document.getElementById('userCount').textContent    = s.users.length + ' population' + (s.users.length !== 1 ? 's' : '');
+      document.getElementById('machineCount').textContent = Object.keys(s.machines).length + ' type' + (Object.keys(s.machines).length !== 1 ? 's' : '');
+    }
+    document.getElementById('loadDummyBtn').addEventListener('click', doLoad);
+    document.getElementById('dummyTile').addEventListener('click', doLoad);
+    function doLoad() { Menu_Option5(); updateStatus(); showToast('Example data loaded!'); }
+  </script>
+</body>
+</html>

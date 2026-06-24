@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Machines — VM Calc</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+  <header class="site-header">
+    <div class="logo"><div class="logo-icon">⚡</div>VM Calculator</div>
+    <nav class="main-nav">
+      <a href="index.html"      class="nav-link">Home</a>
+      <a href="servers.html"    class="nav-link">Servers</a>
+      <a href="users.html"      class="nav-link">Users</a>
+      <a href="machines.html"   class="nav-link active">Machines</a>
+      <a href="calculator.html" class="nav-link nav-cta">Calculate</a>
+    </nav>
+  </header>
+
+  <div class="page-wrap">
+    <div class="page-header">
+      <div class="page-tag">Step 3 of 3</div>
+      <h1 class="page-title">Virtual <span class="accent">Machines</span></h1>
+      <p class="page-sub">Define VM types and assign user populations. VM count = sum of assigned users.</p>
+      <div class="intro-box" style="margin-top:1rem">
+        For each type: CPU per VM · Memory (GB) · Storage (GB) · which user populations will use it<br/>
+        <strong>****** Please Notice! All info is kEy SeNsiTive! ******</strong>
+      </div>
+    </div>
+
+    <div class="sub-menu">
+      <button class="btn btn-primary" id="showAddBtn">+ Add VM Type</button>
+      <button class="btn btn-ghost"   id="showEditBtn">✎ Edit</button>
+      <button class="btn btn-danger"  id="showDeleteBtn">✕ Delete</button>
+      <button class="btn btn-ghost"   id="showUsersBtn">👥 Assign Users</button>
+      <a href="index.html" class="btn btn-ghost">← Main Menu</a>
+      <a href="calculator.html" class="btn btn-primary" style="margin-left:auto">Next: Calculate →</a>
+    </div>
+
+    <!-- ADD -->
+    <div class="form-panel" id="addForm" style="display:none">
+      <div class="form-panel-title">New VM Type</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Type Name</label><input type="text" id="f_name" placeholder="e.g. Office" autocomplete="off"/><span class="error-msg" id="err_name"></span></div>
+        <div class="form-group"><label>CPU per VM</label><input type="number" id="f_cpu" placeholder="e.g. 4" min="1"/><span class="error-msg" id="err_cpu"></span></div>
+        <div class="form-group"><label>Memory GB</label><input type="number" id="f_mem" placeholder="e.g. 8" min="1"/><span class="error-msg" id="err_mem"></span></div>
+        <div class="form-group"><label>Storage GB</label><input type="number" id="f_strg" placeholder="e.g. 80" min="1"/><span class="error-msg" id="err_strg"></span></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-success" id="addBtn">Add VM Type</button>
+        <button class="btn btn-ghost"   id="addCancelBtn">Cancel</button>
+      </div>
+    </div>
+
+    <!-- EDIT -->
+    <div class="form-panel" id="editInline" style="display:none">
+      <div class="form-panel-title">Edit VM Type</div>
+      <div class="form-group" style="max-width:280px;margin-bottom:1rem">
+        <label>Select VM type to edit</label>
+        <select id="editTarget"><option value="">— select a type —</option></select>
+        <span class="error-msg" id="err_editTarget"></span>
+      </div>
+      <div class="form-actions" style="margin-bottom:1rem">
+        <button class="btn btn-primary" id="loadEditBtn">Load</button>
+        <button class="btn btn-ghost"   id="editInlineCancelBtn">Cancel</button>
+      </div>
+      <div id="editFields" style="display:none">
+        <div class="form-grid">
+          <div class="form-group"><label>Type Name</label><input type="text" id="e_name" autocomplete="off"/><span class="error-msg" id="eerr_name"></span></div>
+          <div class="form-group"><label>CPU per VM</label><input type="number" id="e_cpu" min="1"/><span class="error-msg" id="eerr_cpu"></span></div>
+          <div class="form-group"><label>Memory GB</label><input type="number" id="e_mem" min="1"/><span class="error-msg" id="eerr_mem"></span></div>
+          <div class="form-group"><label>Storage GB</label><input type="number" id="e_strg" min="1"/><span class="error-msg" id="eerr_strg"></span></div>
+        </div>
+        <input type="hidden" id="e_orig"/>
+        <button class="btn btn-success" id="saveEditBtn">Save Changes</button>
+      </div>
+    </div>
+
+    <!-- DELETE -->
+    <div class="form-panel" id="deleteForm" style="display:none">
+      <div class="form-panel-title">Delete VM Type</div>
+      <div class="warn-box">⚠ Deleting is not reversible</div>
+      <div class="form-group" style="max-width:280px;margin-bottom:1rem">
+        <label>Select VM type to delete</label>
+        <select id="deleteTarget"><option value="">— select a type —</option></select>
+        <span class="error-msg" id="err_deleteTarget"></span>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-danger" id="confirmDeleteBtn">Delete — This is not reversible!</button>
+        <button class="btn btn-ghost"  id="deleteCancelBtn">Cancel</button>
+      </div>
+    </div>
+
+    <!-- ASSIGN USERS -->
+    <div class="form-panel" id="addUsersForm" style="display:none">
+      <div class="form-panel-title">Assign User Populations to Machine Type</div>
+      <div class="form-group" style="max-width:280px;margin-bottom:1rem">
+        <label>Select machine type to assign users to</label>
+        <select id="machineTarget"><option value="">— select a type —</option></select>
+        <span class="error-msg" id="err_machineTarget"></span>
+      </div>
+      <div class="form-actions" style="margin-bottom:1rem">
+        <button class="btn btn-primary" id="loadMachineBtn">Load Machine Type</button>
+        <button class="btn btn-ghost"   id="addUsersCancelBtn">Cancel</button>
+      </div>
+      <div id="usersAssignPanel" style="display:none">
+        <div class="form-group" style="margin-bottom:1rem">
+          <label>Select user populations (you can choose more than 1)</label>
+          <div class="checkbox-group" id="usersCheckboxGroup"></div>
+          <div id="noUsersMsg" style="font-size:.75rem;color:var(--text-dim);margin-top:.5rem"></div>
+        </div>
+        <button class="btn btn-success" id="assignUsersBtn">Assign Selected Populations</button>
+      </div>
+    </div>
+
+    <div class="section-label">VM Types</div>
+    <div class="table-wrap" id="tableWrap">
+      <table>
+        <thead><tr><th>Name</th><th>CPU</th><th>Memory</th><th>Storage</th><th>Assigned Populations</th><th>VM Count</th></tr></thead>
+        <tbody id="machinesTbody"></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="emptyState" style="display:none"><span>⚙️</span>No VM types yet.</div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    renderTable();
+
+    function getMachineOptions() {
+      const {machines}=getState(), keys=Object.keys(machines);
+      return '<option value="">— select a type —</option>'+keys.map(k=>`<option value="${k}">${k}</option>`).join('');
+    }
+
+    document.getElementById('showAddBtn').addEventListener('click', ()=>showOnly('addForm'));
+    document.getElementById('showEditBtn').addEventListener('click', ()=>showOnly('editInline'));
+    document.getElementById('showDeleteBtn').addEventListener('click', ()=>showOnly('deleteForm'));
+    document.getElementById('showUsersBtn').addEventListener('click', ()=>showOnly('addUsersForm'));
+    document.getElementById('addCancelBtn').addEventListener('click', ()=>hideAll());
+    document.getElementById('editInlineCancelBtn').addEventListener('click', ()=>hideAll());
+    document.getElementById('deleteCancelBtn').addEventListener('click', ()=>hideAll());
+    document.getElementById('addUsersCancelBtn').addEventListener('click', ()=>hideAll());
+
+    function showOnly(id) {
+      ['addForm','editInline','deleteForm','addUsersForm'].forEach(i=>document.getElementById(i).style.display=i===id?'block':'none');
+      if(id==='editInline')   { document.getElementById('editTarget').innerHTML=getMachineOptions(); document.getElementById('editFields').style.display='none'; }
+      if(id==='deleteForm')     document.getElementById('deleteTarget').innerHTML=getMachineOptions();
+      if(id==='addUsersForm') { document.getElementById('machineTarget').innerHTML=getMachineOptions(); document.getElementById('usersAssignPanel').style.display='none'; }
+    }
+    function hideAll() { ['addForm','editInline','deleteForm','addUsersForm'].forEach(i=>document.getElementById(i).style.display='none'); }
+
+    document.getElementById('addBtn').addEventListener('click',()=>{
+      const name=document.getElementById('f_name').value.trim(),cpu=document.getElementById('f_cpu').value,mem=document.getElementById('f_mem').value,strg=document.getElementById('f_strg').value;
+      let ok=true;
+      ok=setError(document.getElementById('f_name'),document.getElementById('err_name'),validateNonEmpty(name,'Name'))&&ok;
+      ok=setError(document.getElementById('f_cpu'), document.getElementById('err_cpu'), validatePositiveInt(cpu,'CPU'))&&ok;
+      ok=setError(document.getElementById('f_mem'), document.getElementById('err_mem'), validatePositiveInt(mem,'Memory'))&&ok;
+      ok=setError(document.getElementById('f_strg'),document.getElementById('err_strg'),validatePositiveInt(strg,'Storage'))&&ok;
+      if(!ok) return;
+      const {machines}=getState();
+      if(machines[name]){setError(document.getElementById('f_name'),document.getElementById('err_name'),'Name Already Exists, please start over');return;}
+      machines[name]={CPU:+cpu,Memory:+mem,Storage:+strg,Users:[]}; saveMachines(machines); ['f_name','f_cpu','f_mem','f_strg'].forEach(id=>document.getElementById(id).value=''); hideAll(); renderTable(); showToast(`"${name}" added.`);
+    });
+
+    document.getElementById('loadEditBtn').addEventListener('click',()=>{
+      const target=document.getElementById('editTarget').value;
+      if(!target){setError(document.getElementById('editTarget'),document.getElementById('err_editTarget'),'Please select a type');document.getElementById('editFields').style.display='none';return;}
+      const {machines}=getState(), m=machines[target];
+      setError(document.getElementById('editTarget'),document.getElementById('err_editTarget'),'');
+      document.getElementById('e_name').value=target; document.getElementById('e_cpu').value=m.CPU; document.getElementById('e_mem').value=m.Memory; document.getElementById('e_strg').value=m.Storage; document.getElementById('e_orig').value=target;
+      document.getElementById('editFields').style.display='block';
+    });
+
+    document.getElementById('saveEditBtn').addEventListener('click',()=>{
+      const orig=document.getElementById('e_orig').value,name=document.getElementById('e_name').value.trim(),cpu=document.getElementById('e_cpu').value,mem=document.getElementById('e_mem').value,strg=document.getElementById('e_strg').value;
+      let ok=true;
+      ok=setError(document.getElementById('e_name'),document.getElementById('eerr_name'),validateNonEmpty(name,'Name'))&&ok;
+      ok=setError(document.getElementById('e_cpu'), document.getElementById('eerr_cpu'), validatePositiveInt(cpu,'CPU'))&&ok;
+      ok=setError(document.getElementById('e_mem'), document.getElementById('eerr_mem'), validatePositiveInt(mem,'Memory'))&&ok;
+      ok=setError(document.getElementById('e_strg'),document.getElementById('eerr_strg'),validatePositiveInt(strg,'Storage'))&&ok;
+      if(!ok) return;
+      const {machines}=getState(); const ex=machines[orig]; delete machines[orig]; machines[name]={CPU:+cpu,Memory:+mem,Storage:+strg,Users:ex.Users||[]}; saveMachines(machines); hideAll(); document.getElementById('editFields').style.display='none'; renderTable(); showToast(`"${name}" updated.`);
+    });
+
+    document.getElementById('confirmDeleteBtn').addEventListener('click',()=>{
+      const target=document.getElementById('deleteTarget').value;
+      if(!target){setError(document.getElementById('deleteTarget'),document.getElementById('err_deleteTarget'),'Please select a type');return;}
+      const {machines}=getState();
+      delete machines[target]; saveMachines(machines); setError(document.getElementById('deleteTarget'),document.getElementById('err_deleteTarget'),''); hideAll(); renderTable(); showToast(`Removing ${target}...`);
+    });
+
+    document.getElementById('loadMachineBtn').addEventListener('click',()=>{
+      const target=document.getElementById('machineTarget').value,{machines,users}=getState();
+      if(!target){setError(document.getElementById('machineTarget'),document.getElementById('err_machineTarget'),'Please select a type');document.getElementById('usersAssignPanel').style.display='none';return;}
+      if(users.length===0){setError(document.getElementById('machineTarget'),document.getElementById('err_machineTarget'),'No users defined. Go to Users page first.');document.getElementById('usersAssignPanel').style.display='none';return;}
+      setError(document.getElementById('machineTarget'),document.getElementById('err_machineTarget'),'');
+      const cur=machines[target].Users||[];
+      document.getElementById('usersCheckboxGroup').innerHTML=users.map(u=>`<label class="checkbox-item"><input type="checkbox" value="${u.Name}" ${cur.includes(u.Name)?'checked':''}/>${u.Name} (${u.Count.toLocaleString()})</label>`).join('');
+      document.getElementById('usersAssignPanel').style.display='block';
+    });
+
+    document.getElementById('assignUsersBtn').addEventListener('click',()=>{
+      const target=document.getElementById('machineTarget').value,{machines}=getState();
+      const sel=[...new Set([...document.querySelectorAll('#usersCheckboxGroup input:checked')].map(c=>c.value))];
+      if(sel.length>0) machines[target]['Users']=sel;
+      saveMachines(machines); document.getElementById('usersAssignPanel').style.display='none'; hideAll(); renderTable(); showToast(`Populations assigned to "${target}".`);
+    });
+
+    function calcCount(userNames){const {users}=getState();return (userNames||[]).reduce((s,n)=>{const u=users.find(u=>u.Name===n);return s+(u?u.Count:0);},0);}
+
+    function renderTable(){
+      const {machines}=getState(),tbody=document.getElementById('machinesTbody'),empty=document.getElementById('emptyState'),wrap=document.getElementById('tableWrap'),keys=Object.keys(machines);
+      if(keys.length===0){tbody.innerHTML='';empty.style.display='block';wrap.style.display='none';return;}
+      empty.style.display='none'; wrap.style.display='block';
+      tbody.innerHTML=keys.map(k=>{
+        const m=machines[k],cnt=calcCount(m.Users||[]);
+        const tags=(m.Users&&m.Users.length>0)?m.Users.map(u=>`<span class="tag">${u}</span>`).join(''):'<span style="color:var(--text-hint)">none</span>';
+        return `<tr><td><strong>${k}</strong></td><td>${m.CPU}</td><td>${m.Memory} GB</td><td>${m.Storage} GB</td><td>${tags}</td><td><span class="pill pill-purple">${cnt.toLocaleString()}</span></td></tr>`;
+      }).join('');
+    }
+  </script>
+</body>
+</html>
