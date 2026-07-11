@@ -38,6 +38,8 @@
         <div class="hero-actions">
           <a href="servers.html" class="btn btn-primary">Start Planning →</a>
           <button class="btn btn-ghost" id="loadDummyBtn">Load Example Data</button>
+          <button class="btn btn-ghost" id="saveBtn">💾 Save</button>
+          <button class="btn btn-ghost" id="loadBtn">📂 Load</button>
         </div>
       </div>
 
@@ -68,6 +70,7 @@
   <div id="toast" class="toast hidden"></div>
   <script src="js/data.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/saveload.js"></script>
   <script>
     updateStatus();
     function updateStatus() {
@@ -79,6 +82,8 @@
     document.getElementById('loadDummyBtn').addEventListener('click', doLoad);
     document.getElementById('dummyTile').addEventListener('click', doLoad);
     function doLoad() { Menu_Option5(); updateStatus(); showToast('Example data loaded!'); }
+    document.getElementById('saveBtn').addEventListener('click', openSaveModal);
+    document.getElementById('loadBtn').addEventListener('click', openLoadModal);
   </script>
 </body>
 </html>
