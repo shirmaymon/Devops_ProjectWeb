@@ -1,15 +1,19 @@
 /**
  * saveload.js
  * Handles all Save / Load interactions with the Flask backend and local file upload.
- * Depends on: data.js (getState, saveHosts, saveUsers, saveMachines), app.js (showToast)
+ * Saving and loading from the server needs a logged-in user (the server knows the user from the
+ * session cookie). Depends on: data.js (getState, saveHosts, saveUsers, saveMachines),
+ * app.js (showToast), auth.js (apiFetch, requireLogin)
  */
 
 const API = '/api';
 
 // ── Utility ──────────────────────────────────────────────────────────────
 
-function formatName(first, last) {
-  return `${first.trim().toLowerCase()}_${last.trim().toLowerCase()}`;
+/** Handles a 401 from the server (session ended): go back to the login page. */
+function handleSessionEnded() {
+  showToast('Your session ended. Please log in again.', 3000);
+  setTimeout(() => { location.href = 'login.html'; }, 1500);
 }
 
 function isValidVmCalcData(data) {
@@ -24,26 +28,31 @@ function isValidVmCalcData(data) {
 
 // ── Save to Backend ───────────────────────────────────────────────────────
 
-async function saveToBackend(first, last) {
+async function saveToBackend() {
   const state = getState();
-  const res = await fetch(`${API}/save`, {
+  const res = await apiFetch(`${API}/save`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ first, last, data: state }),
+    body: JSON.stringify({ data: state }),
   });
 
   if (res.status === 201) {
     const { filename } = await res.json();
     // Also trigger browser download
-    downloadStateAsJson(first, last, state);
+    downloadStateAsJson(filename, state);
     showToast(`✓ Saved as ${filename}`);
     return true;
+  }
+
+  if (res.status === 401) {
+    handleSessionEnded();
+    return false;
   }
 
   if (res.status === 409) {
     // Limit reached — handle deletion flow
     const { oldest } = await res.json();
-    return await handleLimitReached(first, last, oldest, state);
+    return await handleLimitReached(oldest, state);
   }
 
   const { error } = await res.json().catch(() => ({ error: 'Unknown error' }));
@@ -51,24 +60,29 @@ async function saveToBackend(first, last) {
   return false;
 }
 
-async function handleLimitReached(first, last, oldest, state) {
+async function handleLimitReached(oldest, state) {
   // Open the limit-reached modal
-  openLimitModal(first, last, oldest, state);
+  openLimitModal(oldest, state);
   return false; // modal handles the rest
 }
 
-async function forceSave(first, last, deleteFilename, state) {
-  const res = await fetch(`${API}/save/force`, {
+async function forceSave(deleteFilename, state) {
+  const res = await apiFetch(`${API}/save/force`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ first, last, data: state, delete_filename: deleteFilename }),
+    body: JSON.stringify({ data: state, delete_filename: deleteFilename }),
   });
 
   if (res.status === 201) {
     const { filename } = await res.json();
-    downloadStateAsJson(first, last, state);
+    downloadStateAsJson(filename, state);
     showToast(`✓ Saved as ${filename}`);
     return true;
+  }
+
+  if (res.status === 401) {
+    handleSessionEnded();
+    return false;
   }
 
   showToast('✗ Save failed', 4000);
@@ -77,12 +91,7 @@ async function forceSave(first, last, deleteFilename, state) {
 
 // ── Browser Download ──────────────────────────────────────────────────────
 
-function downloadStateAsJson(first, last, state) {
-  const now = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  const ts  = `${pad(now.getDate())}-${pad(now.getMonth()+1)}-${now.getFullYear()}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
-  const filename = `${formatName(first, last)}_${ts}.json`;
-
+function downloadStateAsJson(filename, state) {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -94,17 +103,16 @@ function downloadStateAsJson(first, last, state) {
 
 // ── Load from Backend ─────────────────────────────────────────────────────
 
-async function fetchUserFiles(first, last) {
-  const res = await fetch(`${API}/files?first=${encodeURIComponent(first)}&last=${encodeURIComponent(last)}`);
+async function fetchUserFiles() {
+  const res = await apiFetch(`${API}/files`);
+  if (res.status === 401) { handleSessionEnded(); return []; }
   if (!res.ok) return [];
   const { files } = await res.json();
   return files;
 }
 
-async function loadFromBackend(first, last, filename) {
-  const res = await fetch(
-    `${API}/files/load?first=${encodeURIComponent(first)}&last=${encodeURIComponent(last)}&filename=${encodeURIComponent(filename)}`
-  );
+async function loadFromBackend(filename) {
+  const res = await apiFetch(`${API}/files/load?filename=${encodeURIComponent(filename)}`);
   if (!res.ok) {
     showToast('✗ Could not load file', 4000);
     return;
@@ -121,19 +129,19 @@ async function loadFromBackend(first, last, filename) {
   if (typeof updateStatus === 'function') updateStatus();
 }
 
-async function downloadFromBackend(first, last, filename) {
-  const url = `${API}/files/download?first=${encodeURIComponent(first)}&last=${encodeURIComponent(last)}&filename=${encodeURIComponent(filename)}`;
+async function downloadFromBackend(filename) {
+  const url = `${API}/files/download?filename=${encodeURIComponent(filename)}`;
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   a.click();
 }
 
-async function deleteFromBackend(first, last, filename) {
-  const res = await fetch(`${API}/files/delete`, {
+async function deleteFromBackend(filename) {
+  const res = await apiFetch(`${API}/files/delete`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ first, last, filename }),
+    body: JSON.stringify({ filename }),
   });
   return res.ok;
 }
@@ -184,29 +192,19 @@ function closeModal(id) {
 
 // ── Save Modal ────────────────────────────────────────────────────────────
 
-function openSaveModal() {
+async function openSaveModal() {
   const state = getState();
   if (!state.hosts.length && !state.users.length && !Object.keys(state.machines).length) {
     showToast('Nothing to save — add some data first.', 3500);
     return;
   }
+  if (!(await requireLogin())) return;
 
   const modal = buildModal('saveModal', `
     <div class="modal-box">
       <div class="modal-title">💾 Save Data</div>
-      <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:1rem">
-        <div class="form-group">
-          <label>First Name</label>
-          <input type="text" id="saveFirst" placeholder="e.g. Shir" autocomplete="off"/>
-          <span class="error-msg" id="saveFirstErr"></span>
-        </div>
-        <div class="form-group">
-          <label>Last Name</label>
-          <input type="text" id="saveLast" placeholder="e.g. Cohen" autocomplete="off"/>
-          <span class="error-msg" id="saveLastErr"></span>
-        </div>
-      </div>
-      <p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:1rem">
+      <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:1rem">
+        Saving as <strong id="saveUserName"></strong>.
         File will be downloaded to your browser <strong>and</strong> saved to the server.
       </p>
       <div class="modal-actions">
@@ -216,39 +214,18 @@ function openSaveModal() {
     </div>
   `);
 
+  document.getElementById('saveUserName').textContent = currentUser.name;
   modal.classList.remove('hidden');
 
   document.getElementById('saveConfirmBtn').addEventListener('click', async () => {
-    const first = document.getElementById('saveFirst').value.trim();
-    const last  = document.getElementById('saveLast').value.trim();
-    let valid = true;
-
-    if (!first) {
-      document.getElementById('saveFirstErr').textContent = 'First name is required';
-      document.getElementById('saveFirst').classList.add('error');
-      valid = false;
-    } else {
-      document.getElementById('saveFirstErr').textContent = '';
-      document.getElementById('saveFirst').classList.remove('error');
-    }
-    if (!last) {
-      document.getElementById('saveLastErr').textContent = 'Last name is required';
-      document.getElementById('saveLast').classList.add('error');
-      valid = false;
-    } else {
-      document.getElementById('saveLastErr').textContent = '';
-      document.getElementById('saveLast').classList.remove('error');
-    }
-    if (!valid) return;
-
     closeModal('saveModal');
-    await saveToBackend(first, last);
+    await saveToBackend();
   });
 }
 
 // ── Limit Reached Modal ───────────────────────────────────────────────────
 
-function openLimitModal(first, last, oldest, state) {
+function openLimitModal(oldest, state) {
   const modal = buildModal('limitModal', `
     <div class="modal-box">
       <div class="modal-title" style="color:var(--amber-soft)">⚠️ Save Limit Reached</div>
@@ -273,18 +250,19 @@ function openLimitModal(first, last, oldest, state) {
   modal.classList.remove('hidden');
 
   document.getElementById('downloadOldestBtn').addEventListener('click', () => {
-    downloadFromBackend(first, last, oldest.filename);
+    downloadFromBackend(oldest.filename);
   });
 
   document.getElementById('deleteAndSaveBtn').addEventListener('click', async () => {
     closeModal('limitModal');
-    await forceSave(first, last, oldest.filename, state);
+    await forceSave(oldest.filename, state);
   });
 }
 
 // ── Load Modal ────────────────────────────────────────────────────────────
 
-function openLoadModal() {
+async function openLoadModal() {
+  // The "Upload from my computer" option works without a login; "Load from server" asks for it.
   const modal = buildModal('loadModal', `
     <div class="modal-box">
       <div class="modal-title">📂 Load Data</div>
@@ -307,20 +285,7 @@ function openLoadModal() {
 
       <!-- Backend load -->
       <div id="backendLoadPanel" style="display:none">
-        <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:1rem">
-          <div class="form-group">
-            <label>First Name</label>
-            <input type="text" id="loadFirst" placeholder="e.g. Shir" autocomplete="off"/>
-            <span class="error-msg" id="loadFirstErr"></span>
-          </div>
-          <div class="form-group">
-            <label>Last Name</label>
-            <input type="text" id="loadLast" placeholder="e.g. Cohen" autocomplete="off"/>
-            <span class="error-msg" id="loadLastErr"></span>
-          </div>
-        </div>
-        <button class="btn btn-ghost" id="fetchFilesBtn" style="margin-bottom:1.25rem">Search files</button>
-        <div id="fileListWrap" style="display:none">
+        <div id="fileListWrap">
           <div class="section-label">Your saved files</div>
           <div id="fileList"></div>
         </div>
@@ -338,9 +303,11 @@ function openLoadModal() {
     document.getElementById('localUploadPanel').style.display  = 'block';
     document.getElementById('backendLoadPanel').style.display  = 'none';
   });
-  document.getElementById('loadBackendBtn').addEventListener('click', () => {
+  document.getElementById('loadBackendBtn').addEventListener('click', async () => {
+    if (!(await requireLogin())) return;
     document.getElementById('backendLoadPanel').style.display  = 'block';
     document.getElementById('localUploadPanel').style.display  = 'none';
+    await refreshFileList();
   });
 
   // Local file load
@@ -359,50 +326,39 @@ function openLoadModal() {
       errEl.textContent = e.message;
     }
   });
+}
 
-  // Backend — fetch file list
-  document.getElementById('fetchFilesBtn').addEventListener('click', async () => {
-    const first = document.getElementById('loadFirst').value.trim();
-    const last  = document.getElementById('loadLast').value.trim();
-    let valid = true;
+// Show the logged-in user's saved files inside the load modal.
+async function refreshFileList() {
+  const files = await fetchUserFiles();
+  const list  = document.getElementById('fileList');
+  if (!list) return;
 
-    if (!first) { document.getElementById('loadFirstErr').textContent = 'Required'; valid = false; }
-    else           document.getElementById('loadFirstErr').textContent = '';
-    if (!last)  { document.getElementById('loadLastErr').textContent  = 'Required'; valid = false; }
-    else           document.getElementById('loadLastErr').textContent  = '';
-    if (!valid) return;
+  if (!files.length) {
+    list.innerHTML = '<div class="empty-state"><span>📭</span>You have no saved files yet.</div>';
+    return;
+  }
 
-    const files = await fetchUserFiles(first, last);
-    const wrap  = document.getElementById('fileListWrap');
-    const list  = document.getElementById('fileList');
-    wrap.style.display = 'block';
-
-    if (!files.length) {
-      list.innerHTML = '<div class="empty-state"><span>📭</span>No saved files found for this name.</div>';
-      return;
-    }
-
-    list.innerHTML = files.map(f => `
-      <div class="status-row" style="gap:0.5rem;flex-wrap:wrap;align-items:center">
-        <span style="flex:1;font-size:0.82rem;color:var(--text)">${f.filename}</span>
-        <span style="font-size:0.75rem;color:var(--text-dim)">${f.saved_at}</span>
-        <button class="btn-sm btn-sm-edit" onclick="(async()=>{await loadFromBackend('${first}','${last}','${f.filename}');closeModal('loadModal');})()">Load</button>
-        <button class="btn-sm btn-sm-edit" onclick="downloadFromBackend('${first}','${last}','${f.filename}')">⬇</button>
-        <button class="btn-sm btn-sm-del"  onclick="confirmDeleteFile('${first}','${last}','${f.filename}')">🗑</button>
-      </div>
-    `).join('');
-  });
+  list.innerHTML = files.map(f => `
+    <div class="status-row" style="gap:0.5rem;flex-wrap:wrap;align-items:center">
+      <span style="flex:1;font-size:0.82rem;color:var(--text)">${f.filename}</span>
+      <span style="font-size:0.75rem;color:var(--text-dim)">${f.saved_at}</span>
+      <button class="btn-sm btn-sm-edit" onclick="(async()=>{await loadFromBackend('${f.filename}');closeModal('loadModal');})()">Load</button>
+      <button class="btn-sm btn-sm-edit" onclick="downloadFromBackend('${f.filename}')">⬇</button>
+      <button class="btn-sm btn-sm-del"  onclick="confirmDeleteFile('${f.filename}')">🗑</button>
+    </div>
+  `).join('');
 }
 
 // ── Delete confirm (from file list) ──────────────────────────────────────
 
-async function confirmDeleteFile(first, last, filename) {
+async function confirmDeleteFile(filename) {
   if (!confirm(`Delete "${filename}"? This cannot be undone.`)) return;
-  const ok = await deleteFromBackend(first, last, filename);
+  const ok = await deleteFromBackend(filename);
   if (ok) {
     showToast('✓ File deleted');
     // Refresh list
-    document.getElementById('fetchFilesBtn').click();
+    await refreshFileList();
   } else {
     showToast('✗ Delete failed', 4000);
   }
