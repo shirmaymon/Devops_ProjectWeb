@@ -1,46 +1,92 @@
 """
 api.py — VM Calculator backend
-Handles save/load of user data to /web-data/
+Handles save/load of user data in PostgreSQL (table saved_files).
 """
 
 import os
 import json
-import glob
+from contextlib import contextmanager
 from datetime import datetime
-from flask import Flask, request, jsonify, send_file
+
+import psycopg2
+from psycopg2.extras import Json
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
 
-DATA_DIR = "/web-data"
 MAX_FILES_PER_USER = 5
+
+# Database connection settings come from environment variables (set in the Deployment).
+DB_CONFIG = {
+    "host": os.environ.get("DB_HOST", "vmcalc-db-service.database"),
+    "port": os.environ.get("DB_PORT", "5432"),
+    "dbname": os.environ.get("DB_NAME", "vmcalc"),
+    "user": os.environ.get("DB_USER", "vmcalc"),
+    "password": os.environ.get("DB_PASSWORD", ""),
+}
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
-def user_dir(first: str, last: str) -> str:
-    """Return the storage directory for a given user."""
-    username = f"{first.strip().lower()}_{last.strip().lower()}"
-    return os.path.join(DATA_DIR, username)
+@contextmanager
+def db():
+    """Open a connection and yield a cursor. Commits on success, rolls back on error."""
+    conn = psycopg2.connect(connect_timeout=5, **DB_CONFIG)
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                yield cur
+    finally:
+        conn.close()
 
 
-def list_user_files(first: str, last: str) -> list[dict]:
-    """Return sorted list of saved files for a user (oldest first)."""
-    path = user_dir(first, last)
-    if not os.path.isdir(path):
-        return []
-    files = glob.glob(os.path.join(path, "*.json"))
-    result = []
-    for f in files:
-        stat = os.stat(f)
-        result.append({
-            "filename": os.path.basename(f),
-            "saved_at": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
-            "size_kb": round(stat.st_size / 1024, 1),
-        })
-    result.sort(key=lambda x: x["saved_at"])
-    return result
+def owner(first: str, last: str) -> tuple[str, str]:
+    """Return the normalized owner key (lowercase first and last name)."""
+    return first.strip().lower(), last.strip().lower()
+
+
+def list_user_files(cur, first: str, last: str) -> list[dict]:
+    """Return list of saved files for a user (oldest first)."""
+    cur.execute(
+        """
+        SELECT filename, created_at, octet_length(data::text)
+        FROM saved_files
+        WHERE first_name = %s AND last_name = %s
+        ORDER BY created_at, id
+        """,
+        owner(first, last),
+    )
+    return [
+        {
+            "filename": filename,
+            "saved_at": created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "size_kb": round(size / 1024, 1),
+        }
+        for filename, created_at, size in cur.fetchall()
+    ]
+
+
+def insert_file(cur, first: str, last: str, data: dict) -> str:
+    """
+    Insert a saved file and return its filename.
+    Every save gets its own ID (the table's id column), and the ID is part of the filename:
+    firstname_lastname_DD-MM-YYYY_HH-MM_<id>.json. Two saves in the same minute never collide.
+    """
+    first, last = owner(first, last)
+    cur.execute("SELECT nextval(pg_get_serial_sequence('saved_files', 'id'))")
+    file_id = cur.fetchone()[0]
+    now = datetime.now().strftime("%d-%m-%Y_%H-%M")
+    filename = f"{first}_{last}_{now}_{file_id}.json"
+    cur.execute(
+        """
+        INSERT INTO saved_files (id, first_name, last_name, filename, data)
+        VALUES (%s, %s, %s, %s, %s)
+        """,
+        (file_id, first, last, filename, Json(data)),
+    )
+    return filename
 
 
 def validate_vmcalc_data(data: dict) -> bool:
@@ -53,12 +99,18 @@ def validate_vmcalc_data(data: dict) -> bool:
     )
 
 
+@app.errorhandler(psycopg2.Error)
+def handle_db_error(e):
+    app.logger.error("Database error: %s", e)
+    return jsonify({"error": "Database error"}), 500
+
+
 # ── Routes ───────────────────────────────────────────────────────────────
 
 @app.route("/api/save", methods=["POST"])
 def save_data():
     """
-    Save current session data to /web-data/<user>/<filename>.json
+    Save current session data to the database.
     Body: { first, last, data: { hosts, users, machines } }
     """
     body = request.get_json(silent=True)
@@ -74,28 +126,18 @@ def save_data():
     if not data or not validate_vmcalc_data(data):
         return jsonify({"error": "Invalid data structure"}), 400
 
-    udir = user_dir(first, last)
-    os.makedirs(udir, exist_ok=True)
+    with db() as cur:
+        files = list_user_files(cur, first, last)
 
-    files = list_user_files(first, last)
+        # Enforce 5-file limit — return conflict so the frontend can ask the user
+        if len(files) >= MAX_FILES_PER_USER:
+            return jsonify({
+                "error": "limit_reached",
+                "oldest": files[0],
+                "count": len(files),
+            }), 409
 
-    # Enforce 5-file limit — return conflict so the frontend can ask the user
-    if len(files) >= MAX_FILES_PER_USER:
-        oldest = files[0]
-        return jsonify({
-            "error": "limit_reached",
-            "oldest": oldest,
-            "count": len(files),
-        }), 409
-
-    # Build filename: firstname_lastname_DD-MM-YYYY_HH-MM.json
-    now = datetime.now().strftime("%d-%m-%Y_%H-%M")
-    username = f"{first.lower()}_{last.lower()}"
-    filename = f"{username}_{now}.json"
-    filepath = os.path.join(udir, filename)
-
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        filename = insert_file(cur, first, last, data)
 
     return jsonify({"message": "Saved", "filename": filename}), 201
 
@@ -103,7 +145,7 @@ def save_data():
 @app.route("/api/save/force", methods=["POST"])
 def force_save():
     """
-    Delete oldest file and save new one.
+    Delete the named file and save the new one.
     Body: { first, last, data, delete_filename }
     """
     body = request.get_json(silent=True)
@@ -120,19 +162,12 @@ def force_save():
     if not data or not validate_vmcalc_data(data):
         return jsonify({"error": "Invalid data structure"}), 400
 
-    udir     = user_dir(first, last)
-    del_path = os.path.join(udir, delete_filename)
-
-    if os.path.isfile(del_path):
-        os.remove(del_path)
-
-    now      = datetime.now().strftime("%d-%m-%Y_%H-%M")
-    username = f"{first.lower()}_{last.lower()}"
-    filename = f"{username}_{now}.json"
-    filepath = os.path.join(udir, filename)
-
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with db() as cur:
+        cur.execute(
+            "DELETE FROM saved_files WHERE first_name = %s AND last_name = %s AND filename = %s",
+            (*owner(first, last), delete_filename),
+        )
+        filename = insert_file(cur, first, last, data)
 
     return jsonify({"message": "Saved", "filename": filename}), 201
 
@@ -149,14 +184,26 @@ def get_files():
     if not first or not last:
         return jsonify({"error": "First and last name are required"}), 400
 
-    files = list_user_files(first, last)
+    with db() as cur:
+        files = list_user_files(cur, first, last)
     return jsonify({"files": files}), 200
+
+
+def fetch_data(first: str, last: str, filename: str):
+    """Return the saved JSON of a file, or None if it does not exist."""
+    with db() as cur:
+        cur.execute(
+            "SELECT data FROM saved_files WHERE first_name = %s AND last_name = %s AND filename = %s",
+            (*owner(first, last), filename),
+        )
+        row = cur.fetchone()
+    return row[0] if row else None
 
 
 @app.route("/api/files/download", methods=["GET"])
 def download_file():
     """
-    Download a specific saved file.
+    Download a specific saved file as a .json attachment.
     Query params: first, last, filename
     """
     first    = request.args.get("first", "").strip()
@@ -166,15 +213,15 @@ def download_file():
     if not first or not last or not filename:
         return jsonify({"error": "Missing parameters"}), 400
 
-    # Prevent path traversal
-    if "/" in filename or "\\" in filename or ".." in filename:
-        return jsonify({"error": "Invalid filename"}), 400
-
-    filepath = os.path.join(user_dir(first, last), filename)
-    if not os.path.isfile(filepath):
+    data = fetch_data(first, last, filename)
+    if data is None:
         return jsonify({"error": "File not found"}), 404
 
-    return send_file(filepath, as_attachment=True, download_name=filename)
+    return Response(
+        json.dumps(data, ensure_ascii=False, indent=2),
+        mimetype="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.route("/api/files/load", methods=["GET"])
@@ -190,15 +237,9 @@ def load_file():
     if not first or not last or not filename:
         return jsonify({"error": "Missing parameters"}), 400
 
-    if "/" in filename or "\\" in filename or ".." in filename:
-        return jsonify({"error": "Invalid filename"}), 400
-
-    filepath = os.path.join(user_dir(first, last), filename)
-    if not os.path.isfile(filepath):
+    data = fetch_data(first, last, filename)
+    if data is None:
         return jsonify({"error": "File not found"}), 404
-
-    with open(filepath, "r", encoding="utf-8") as f:
-        data = json.load(f)
 
     return jsonify(data), 200
 
@@ -220,17 +261,17 @@ def delete_file():
     if not first or not last or not filename:
         return jsonify({"error": "Missing required fields"}), 400
 
-    if "/" in filename or "\\" in filename or ".." in filename:
-        return jsonify({"error": "Invalid filename"}), 400
+    with db() as cur:
+        cur.execute(
+            "DELETE FROM saved_files WHERE first_name = %s AND last_name = %s AND filename = %s",
+            (*owner(first, last), filename),
+        )
+        deleted = cur.rowcount
 
-    filepath = os.path.join(user_dir(first, last), filename)
-    if not os.path.isfile(filepath):
+    if deleted == 0:
         return jsonify({"error": "File not found"}), 404
-
-    os.remove(filepath)
     return jsonify({"message": "Deleted"}), 200
 
 
 if __name__ == "__main__":
-    os.makedirs(DATA_DIR, exist_ok=True)
     app.run(host="0.0.0.0", port=5000)
