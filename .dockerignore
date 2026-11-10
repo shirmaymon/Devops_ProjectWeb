@@ -1,0 +1,4 @@
+flask/Dockerfile
+auth/Dockerfile
+front/Dockerfile
+.dockerignore
