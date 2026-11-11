@@ -3,7 +3,30 @@
 // tests them, pushes them to Docker Hub and writes the new tag into the infra repo. Argo CD deploys it.
 
 pipeline {
-  agent { label 'vmcalc-build' }
+    agent {
+    kubernetes {
+      yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+    - name: dind
+      image: docker:dind
+      securityContext:
+        privileged: true
+      env:
+        - name: DOCKER_TLS_CERTDIR
+          value: ""
+    - name: tools
+      image: docker:cli
+      command: ["cat"]
+      tty: true
+      env:
+        - name: DOCKER_HOST
+          value: tcp://localhost:2375
+'''
+    }
+  }
 
   environment {
     DOCKERHUB_USER = 'shirmaymon'
