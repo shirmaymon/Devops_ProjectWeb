@@ -27,6 +27,7 @@
       </div>
       <div class="page-actions">
         <button class="btn btn-primary" id="calcBtn">▶ Run Calculation</button>
+        <button class="btn btn-ghost" id="saveBtn" style="display:none">💾 Save Configuration</button>
         <a href="index.html" class="btn btn-ghost">← Main Menu</a>
       </div>
     </div>
@@ -58,7 +59,10 @@
   <div id="toast" class="toast hidden"></div>
   <script src="js/data.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/saveload.js"></script>
   <script>
+    document.getElementById('saveBtn').addEventListener('click', openSaveModal);
     document.getElementById('calcBtn').addEventListener('click', () => {
       const {hosts,users,machines}=getState();
       if(!hosts.length){showToast('No servers found. Please enter Servers first.');return;}
@@ -155,6 +159,7 @@
 
       document.getElementById('resultsArea').innerHTML=html;
       document.getElementById('calcBtn').textContent='↺ Recalculate';
+      document.getElementById('saveBtn').style.display='';
     });
   </script>
 </body>

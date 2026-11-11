@@ -52,8 +52,8 @@
     <div class="form-panel" id="editInline" style="display:none">
       <div class="form-panel-title">Edit Population</div>
       <div class="form-group" style="max-width:280px;margin-bottom:1rem">
-        <label>Population name to edit (case sensitive)</label>
-        <input type="text" id="editTarget" placeholder="Type exact name" autocomplete="off"/>
+        <label>Population to edit</label>
+        <select id="editTarget"></select>
         <span class="error-msg" id="err_editTarget"></span>
       </div>
       <div class="form-actions" style="margin-bottom:1rem">
@@ -103,11 +103,19 @@
   <script>
     renderTable();
     document.getElementById('showAddBtn').addEventListener('click',    ()=>showOnly('addForm'));
-    document.getElementById('showEditBtn').addEventListener('click',   ()=>showOnly('editInline'));
+    document.getElementById('showEditBtn').addEventListener('click',   ()=>{fillEditSelect();showOnly('editInline');});
     document.getElementById('showDeleteBtn').addEventListener('click', ()=>showOnly('deleteForm'));
     document.getElementById('addCancelBtn').addEventListener('click',        ()=>hideAll());
     document.getElementById('editInlineCancelBtn').addEventListener('click', ()=>hideAll());
     document.getElementById('deleteCancelBtn').addEventListener('click',     ()=>hideAll());
+    function fillEditSelect(){
+      const {users}=getState(), sel=document.getElementById('editTarget');
+      sel.textContent='';
+      const ph=document.createElement('option'); ph.value=''; ph.textContent='Select a population…'; sel.appendChild(ph);
+      users.forEach(x=>{const o=document.createElement('option'); o.value=x.Name; o.textContent=x.Name; sel.appendChild(o);});
+      document.getElementById('editFields').style.display='none';
+      setError(sel,document.getElementById('err_editTarget'),'');
+    }
     function showOnly(id){['addForm','editInline','deleteForm'].forEach(i=>document.getElementById(i).style.display=i===id?'block':'none');}
     function hideAll(){['addForm','editInline','deleteForm'].forEach(i=>document.getElementById(i).style.display='none');}
 
@@ -124,7 +132,7 @@
 
     document.getElementById('loadEditBtn').addEventListener('click',()=>{
       const target=document.getElementById('editTarget').value.trim(),{users}=getState(),found=users.find(u=>u.Name===target);
-      if(!found){setError(document.getElementById('editTarget'),document.getElementById('err_editTarget'),"Doesn't exist. Re-enter and try again");document.getElementById('editFields').style.display='none';return;}
+      if(!found){setError(document.getElementById('editTarget'),document.getElementById('err_editTarget'),"Please select a population.");document.getElementById('editFields').style.display='none';return;}
       setError(document.getElementById('editTarget'),document.getElementById('err_editTarget'),'');
       document.getElementById('e_name').value=found.Name; document.getElementById('e_count').value=found.Count; document.getElementById('e_orig').value=found.Name;
       document.getElementById('editFields').style.display='block';
