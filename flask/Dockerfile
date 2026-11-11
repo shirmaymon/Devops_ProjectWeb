@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /calc/backend/flask
 
-RUN pip install --no-cache-dir flask psycopg2-binary
+RUN pip install --no-cache-dir flask psycopg2-binary prometheus-client
 
 COPY flask/ .
 COPY common/common.py .

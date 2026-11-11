@@ -12,9 +12,10 @@ import psycopg2
 from psycopg2.extras import Json
 from flask import Flask, request, jsonify, Response, g
 
-from common import db, login_required
+from common import db, login_required, setup_metrics
 
 app = Flask(__name__)
+setup_metrics(app)
 
 MAX_FILES_PER_USER = 5
 

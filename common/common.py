@@ -8,6 +8,7 @@ Only a SHA-256 hash of the ID is stored, so a copy of the table cannot be used t
 """
 
 import os
+import time
 import hashlib
 import hmac
 import secrets
@@ -15,7 +16,8 @@ from contextlib import contextmanager
 from functools import wraps
 
 import psycopg2
-from flask import request, jsonify, g
+from flask import request, jsonify, g, Response
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 # ── Settings (environment variables, set in the Deployment) ──────────────────
 
@@ -133,3 +135,28 @@ def login_required(fn):
         g.user = sess
         return fn(*args, **kwargs)
     return wrapper
+
+
+# ── Metrics (Prometheus) ─────────────────────────────────────────────────────
+
+REQUESTS = Counter("http_requests_total", "HTTP requests", ["method", "route", "status"])
+LATENCY = Histogram("http_request_duration_seconds", "HTTP request duration in seconds", ["method", "route"])
+
+
+def setup_metrics(app):
+    """Count and time every request, and serve the numbers on /metrics (read by Prometheus)."""
+    @app.before_request
+    def start_timer():
+        g.start = time.perf_counter()
+
+    @app.after_request
+    def record(resp):
+        if request.path != "/metrics":
+            route = request.url_rule.rule if request.url_rule else "unmatched"
+            REQUESTS.labels(request.method, route, resp.status_code).inc()
+            LATENCY.labels(request.method, route).observe(time.perf_counter() - g.start)
+        return resp
+
+    @app.route("/metrics")
+    def metrics():
+        return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)

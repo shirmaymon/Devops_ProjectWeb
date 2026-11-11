@@ -12,11 +12,12 @@ from argon2.exceptions import VerifyMismatchError, InvalidHashError
 from flask import Flask, request, jsonify, g
 
 from common import (
-    db, COOKIE_NAME, create_session, delete_session, login_required,
+    db, setup_metrics, COOKIE_NAME, create_session, delete_session, login_required,
     set_session_cookie, clear_session_cookie,
 )
 
 app = Flask(__name__)
+setup_metrics(app)
 ph = PasswordHasher()   # argon2-cffi default type is Argon2id
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
