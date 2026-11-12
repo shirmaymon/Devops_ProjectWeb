@@ -151,7 +151,7 @@ def setup_metrics(app):
 
     @app.after_request
     def record(resp):
-        if request.path != "/metrics":
+        if request.path not in ("/metrics", "/healthz", "/readyz"):
             route = request.url_rule.rule if request.url_rule else "unmatched"
             REQUESTS.labels(request.method, route, resp.status_code).inc()
             LATENCY.labels(request.method, route).observe(time.perf_counter() - g.start)
@@ -160,3 +160,22 @@ def setup_metrics(app):
     @app.route("/metrics")
     def metrics():
         return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
+
+
+# ── Health checks (Kubernetes probes) ────────────────────────────────────────
+
+def setup_health(app):
+    """/healthz: the process is alive. /readyz: it can reach the database. Used by the probes."""
+    @app.route("/healthz")
+    def healthz():
+        return jsonify({"status": "ok"}), 200
+
+    @app.route("/readyz")
+    def readyz():
+        try:
+            with db() as cur:
+                cur.execute("SELECT 1")
+        except Exception as e:
+            app.logger.error("Not ready: %s", e)
+            return jsonify({"status": "not ready"}), 503
+        return jsonify({"status": "ready"}), 200
