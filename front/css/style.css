@@ -1,28 +1,28 @@
 /* ===========================
    VM CALC — Dashboard Theme
-   Pastel green, dark forest
+   Pastel purple, dark navy
    =========================== */
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@700&display=swap');
 
 :root {
-  --bg:        #0f1a16;
-  --bg2:       #14231c;
-  --bg3:       #1b2d25;
-  --bg4:       #233a30;
+  --bg:        #13141f;
+  --bg2:       #1a1b2e;
+  --bg3:       #22243a;
+  --bg4:       #2a2d47;
   --border:    rgba(255,255,255,0.07);
   --border2:   rgba(255,255,255,0.13);
 
-  --text:      #e8f5ee;
-  --text-dim:  #7f9a8e;
-  --text-hint: #4f6b5e;
+  --text:      #e8e9f5;
+  --text-dim:  #7b7f9e;
+  --text-hint: #4a4e6a;
 
   /* Pastel purples — main accent */
-  --purple-soft:   #a7f3d0;
-  --purple-mid:    #34d399;
-  --purple-bold:   #059669;
-  --purple-glow:   rgba(52,211,153,0.15);
-  --purple-subtle: rgba(52,211,153,0.08);
+  --purple-soft:   #c4b5fd;
+  --purple-mid:    #a78bfa;
+  --purple-bold:   #7c3aed;
+  --purple-glow:   rgba(167,139,250,0.15);
+  --purple-subtle: rgba(167,139,250,0.08);
 
   /* Pastel supporting palette */
   --pink-soft:   #f9a8d4;
@@ -46,7 +46,7 @@
   --font-display: 'Playfair Display', serif;
 
   --shadow-card: 0 4px 24px rgba(0,0,0,0.35);
-  --shadow-glow: 0 0 32px rgba(52,211,153,0.12);
+  --shadow-glow: 0 0 32px rgba(167,139,250,0.12);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -67,7 +67,7 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: radial-gradient(circle, rgba(52,211,153,0.06) 1px, transparent 1px);
+  background-image: radial-gradient(circle, rgba(167,139,250,0.06) 1px, transparent 1px);
   background-size: 28px 28px;
   pointer-events: none;
   z-index: 0;
@@ -82,7 +82,7 @@ body::after {
   transform: translateX(-50%);
   width: 800px;
   height: 400px;
-  background: radial-gradient(ellipse, rgba(5,150,105,0.18) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(124,58,237,0.18) 0%, transparent 70%);
   pointer-events: none;
   z-index: 0;
 }
@@ -101,7 +101,7 @@ body::after {
   align-items: center;
   justify-content: space-between;
   padding: 0.9rem 2rem;
-  background: rgba(15,26,22,0.85);
+  background: rgba(19,20,31,0.85);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -151,7 +151,7 @@ body::after {
   background: var(--purple-subtle);
 }
 .nav-cta {
-  background: linear-gradient(135deg, var(--purple-bold), #047857) !important;
+  background: linear-gradient(135deg, var(--purple-bold), #5b21b6) !important;
   color: white !important;
   font-weight: 600 !important;
 }
@@ -183,7 +183,7 @@ body::after {
   text-transform: uppercase;
   color: var(--purple-soft);
   background: var(--purple-subtle);
-  border: 1px solid rgba(52,211,153,0.2);
+  border: 1px solid rgba(167,139,250,0.2);
   padding: 3px 10px;
   border-radius: 20px;
   margin-bottom: 0.6rem;
@@ -210,7 +210,7 @@ body::after {
 /* ---- INTRO BOX ---- */
 .intro-box {
   background: var(--purple-subtle);
-  border: 1px solid rgba(52,211,153,0.15);
+  border: 1px solid rgba(167,139,250,0.15);
   border-radius: var(--radius-md);
   padding: 1rem 1.25rem;
   font-size: 0.85rem;
@@ -314,9 +314,9 @@ body::after {
   background: linear-gradient(135deg, var(--purple-mid), var(--purple-bold));
   color: white;
   border-color: transparent;
-  box-shadow: 0 2px 12px rgba(5,150,105,0.35);
+  box-shadow: 0 2px 12px rgba(124,58,237,0.35);
 }
-.btn-primary:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(5,150,105,0.45); }
+.btn-primary:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(124,58,237,0.45); }
 .btn-ghost {
   background: var(--bg3);
   color: var(--text-dim);
@@ -395,7 +395,7 @@ body::after {
 .form-group select:focus {
   border-color: var(--purple-mid);
   background: var(--bg4);
-  box-shadow: 0 0 0 3px rgba(52,211,153,0.12);
+  box-shadow: 0 0 0 3px rgba(167,139,250,0.12);
 }
 .form-group input.error { border-color: var(--red-soft); }
 .error-msg { font-size: 0.72rem; color: var(--red-soft); min-height: 1em; }
@@ -475,7 +475,7 @@ body::after {
   border-radius: 20px;
   background: var(--purple-subtle);
   color: var(--purple-soft);
-  border: 1px solid rgba(52,211,153,0.2);
+  border: 1px solid rgba(167,139,250,0.2);
   margin: 2px;
 }
 
@@ -508,7 +508,7 @@ body::after {
   border-radius: var(--radius-sm);
 }
 .checkbox-item:has(input:checked) {
-  border-color: rgba(52,211,153,0.4);
+  border-color: rgba(167,139,250,0.4);
   background: var(--purple-subtle);
   color: var(--purple-soft);
 }
@@ -689,14 +689,14 @@ hr.divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; 
   transition: all 0.2s;
 }
 .menu-tile:hover {
-  border-color: rgba(52,211,153,0.3);
+  border-color: rgba(167,139,250,0.3);
   background: var(--bg3);
   transform: translateY(-1px);
 }
 .tile-num { font-size: 0.65rem; font-weight: 600; color: var(--text-hint); letter-spacing: 0.05em; }
 .tile-icon { font-size: 1.25rem; }
 .tile-label { font-size: 0.8rem; font-weight: 600; }
-.tile-accent { border-color: rgba(52,211,153,0.3) !important; background: var(--purple-subtle) !important; }
+.tile-accent { border-color: rgba(167,139,250,0.3) !important; background: var(--purple-subtle) !important; }
 .tile-accent .tile-label { color: var(--purple-soft); }
 
 .notice-bar {
@@ -734,7 +734,7 @@ hr.divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; 
 .toast {
   position: fixed; bottom: 1.75rem; right: 1.75rem;
   background: var(--bg3);
-  border: 1px solid rgba(52,211,153,0.25);
+  border: 1px solid rgba(167,139,250,0.25);
   border-radius: var(--radius-md);
   color: var(--text);
   font-size: 0.84rem;

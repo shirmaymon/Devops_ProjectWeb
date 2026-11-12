@@ -179,5 +179,3 @@ def setup_health(app):
             app.logger.error("Not ready: %s", e)
             return jsonify({"status": "not ready"}), 503
         return jsonify({"status": "ready"}), 200
-
-# demo: trigger flask + auth build
