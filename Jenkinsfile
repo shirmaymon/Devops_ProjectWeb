@@ -1,3 +1,4 @@
+// Jenkinsfile in the root of Devops_ProjectWeb.
 // Builds only the services whose folders changed (front/, flask/, auth/; common/ affects flask and auth),
 // tests them, pushes them to Docker Hub and writes the new tag into the infra repo. Argo CD deploys it.
 
@@ -198,8 +199,12 @@ spec:
               done
               git config user.name jenkins
               git config user.email jenkins@vmcalc.local
-              git commit -am "ci: update images ($SERVICES) to $TAG"
-              git push https://$GH_USER:$GH_TOKEN@$INFRA_REPO HEAD:main
+              if git diff --quiet; then
+                echo "Infra already uses $TAG, nothing to push"
+              else
+                git commit -am "ci: update images ($SERVICES) to $TAG"
+                git push https://$GH_USER:$GH_TOKEN@$INFRA_REPO HEAD:main
+              fi
             '''
           }
         }
