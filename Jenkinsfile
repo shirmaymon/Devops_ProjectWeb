@@ -98,22 +98,66 @@ spec:
       }
     }
 
-    // 4. Test: run each built image and call it over HTTP. A failing command stops the pipeline.
-    //    Frontend must answer 200. Flask and auth only have to answer (any status), they have no database here.
+    // 4. Test: one stage per service, run in parallel. Each starts its own container and checks it over HTTP. A failing command stops the pipeline (failFast also stops the other tests).
+    //    Frontend: /index.html must answer 200. Flask and auth: /healthz must answer 200, /readyz must answer 503 (no database in test env), and /metrics must show request counters after one request.
     stage('Test') {
-      when { expression { env.SERVICES?.trim() } }
-      steps {
-        container('tools') {
-          sh '''
-            case " $SERVICES " in *" front "*) docker run -d --name t-front -p 18080:80   $DOCKERHUB_USER/devops-front:$TAG ;; esac
-            case " $SERVICES " in *" flask "*) docker run -d --name t-flask -p 15000:5000 $DOCKERHUB_USER/devops-backend:$TAG ;; esac
-            case " $SERVICES " in *" auth "*)  docker run -d --name t-auth  -p 15001:5001 $DOCKERHUB_USER/devops-auth:$TAG ;; esac
-            sleep 10
-            case " $SERVICES " in *" front "*) test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:18080/index.html)" = "200" ;; esac
-            case " $SERVICES " in *" flask "*) test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:15000/)" != "000" ;; esac
-            case " $SERVICES " in *" auth "*)  test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:15001/api/auth/me)" != "000" ;; esac
-          '''
+      failFast true
+      parallel {
+
+        stage('Test front') {
+          when { expression { (" " + env.SERVICES + " ").contains(" front ") } }
+          steps {
+            container('tools') {
+              sh '''
+                code() { curl -s -o /dev/null -w '%{http_code}' "$1"; }
+                wait_for() { for i in $(seq 1 30); do [ "$(code $1)" != "000" ] && return 0; sleep 1; done; return 1; }
+
+                docker run -d --name t-front -p 18080:80 $DOCKERHUB_USER/devops-front:$TAG
+                wait_for http://localhost:18080/index.html
+                test "$(code http://localhost:18080/index.html)" = "200"
+              '''
+            }
+          }
         }
+
+        stage('Test flask') {
+          when { expression { (" " + env.SERVICES + " ").contains(" flask ") } }
+          steps {
+            container('tools') {
+              sh '''
+                code() { curl -s -o /dev/null -w '%{http_code}' "$1"; }
+                wait_for() { for i in $(seq 1 30); do [ "$(code $1)" != "000" ] && return 0; sleep 1; done; return 1; }
+
+                docker run -d --name t-flask -p 15000:5000 $DOCKERHUB_USER/devops-backend:$TAG
+                wait_for http://localhost:15000/healthz
+                test "$(code http://localhost:15000/healthz)" = "200"
+                test "$(code http://localhost:15000/readyz)" = "503"
+                code http://localhost:15000/api/files > /dev/null
+                curl -s http://localhost:15000/metrics | grep -q http_requests_total
+              '''
+            }
+          }
+        }
+
+        stage('Test auth') {
+          when { expression { (" " + env.SERVICES + " ").contains(" auth ") } }
+          steps {
+            container('tools') {
+              sh '''
+                code() { curl -s -o /dev/null -w '%{http_code}' "$1"; }
+                wait_for() { for i in $(seq 1 30); do [ "$(code $1)" != "000" ] && return 0; sleep 1; done; return 1; }
+
+                docker run -d --name t-auth -p 15001:5001 $DOCKERHUB_USER/devops-auth:$TAG
+                wait_for http://localhost:15001/healthz
+                test "$(code http://localhost:15001/healthz)" = "200"
+                test "$(code http://localhost:15001/readyz)" = "503"
+                code http://localhost:15001/api/auth/me > /dev/null
+                curl -s http://localhost:15001/metrics | grep -q http_requests_total
+              '''
+            }
+          }
+        }
+
       }
     }
 
