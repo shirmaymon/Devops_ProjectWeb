@@ -1,4 +1,3 @@
-// Jenkinsfile in the root of Devops_ProjectWeb.
 // Builds only the services whose folders changed (front/, flask/, auth/; common/ affects flask and auth),
 // tests them, pushes them to Docker Hub and writes the new tag into the infra repo. Argo CD deploys it.
 
